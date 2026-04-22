@@ -1,15 +1,22 @@
 import { useState } from "react";
 
+// ─── CONFIGURAÇÃO FORMSPREE ───────────────────────────────────────────────────
+// 1. Acesse https://formspree.io e crie uma conta gratuita
+// 2. Crie um novo form e copie o ID (ex: "xpwzgkjb")
+// 3. Substitua "SEU_ID_AQUI" pelo seu ID abaixo
+const FORMSPREE_ID = "SEU_ID_AQUI";
+// ─────────────────────────────────────────────────────────────────────────────
+
 const questions = [
-  { id: 1, text: "É alérgico(a) a algum medicamento?", hasComment: true },
-  { id: 2, text: "É alérgico(a) a látex?", hasComment: false },
-  { id: 3, text: "Faz uso de algum medicamento diário?", hasComment: true, commentLabel: "Liste os medicamentos e doses:" },
-  { id: 4, text: "Faz uso de tranquilizantes ou calmantes?", hasComment: true },
-  { id: 5, text: "Tem ou teve recentemente tosse com catarro?", hasComment: false },
-  { id: 6, text: "Tem ou teve alguma doença cardíaca?", hasComment: true },
-  { id: 7, text: "Tem marcapasso cardíaco?", hasComment: false },
-  { id: 8, text: "Tem ou teve algum problema de pressão?", hasComment: true },
-  { id: 9, text: "Tem ou teve algum problema de pulmão? (Asma, bronquite, tuberculose, etc.)", hasComment: true },
+  { id: 1,  text: "É alérgico(a) a algum medicamento?", hasComment: true },
+  { id: 2,  text: "É alérgico(a) a látex?", hasComment: false },
+  { id: 3,  text: "Faz uso de algum medicamento diário?", hasComment: true, commentLabel: "Liste os medicamentos e doses:" },
+  { id: 4,  text: "Faz uso de tranquilizantes ou calmantes?", hasComment: true },
+  { id: 5,  text: "Tem ou teve recentemente tosse com catarro?", hasComment: false },
+  { id: 6,  text: "Tem ou teve alguma doença cardíaca?", hasComment: true },
+  { id: 7,  text: "Tem marcapasso cardíaco?", hasComment: false },
+  { id: 8,  text: "Tem ou teve algum problema de pressão?", hasComment: true },
+  { id: 9,  text: "Tem ou teve algum problema de pulmão? (Asma, bronquite, tuberculose, etc.)", hasComment: true },
   { id: 10, text: "Tem problema de sangramento ou coagulação?", hasComment: false },
   { id: 11, text: "Tem diabetes?", hasComment: true },
   { id: 12, text: "É portador(a) de doença infecto-contagiosa?", hasComment: true, commentLabel: "Qual?" },
@@ -47,6 +54,55 @@ const pregnancyQuestion = {
 
 const steps = ["Dados Pessoais", "Histórico Médico", "Histórico e Hábitos"];
 
+const inputStyle = {
+  width: "100%", padding: "10px 14px", borderRadius: 8,
+  border: "1.5px solid #dde3ec", background: "#f8fafc",
+  fontSize: 15, color: "#1a2332", outline: "none",
+  boxSizing: "border-box", fontFamily: "Georgia, serif", marginTop: 4,
+};
+
+// ── QuestionRow fora do App para evitar re-mount a cada keystroke ─────────────
+function QuestionRow({ q, answers, comments, setAnswer, setComment }) {
+  const ans = answers[q.id];
+  return (
+    <div style={{
+      background: "#fff", borderRadius: 12, padding: "14px 16px",
+      marginBottom: 10, border: "1.5px solid #eaeff5",
+      boxShadow: "0 1px 4px rgba(60,80,120,0.04)",
+    }}>
+      <div style={{ fontSize: 15, color: "#1a2332", marginBottom: 10, lineHeight: 1.5 }}>
+        {q.text}
+      </div>
+      <div style={{ display: "flex", gap: 10, marginBottom: ans === "sim" && q.hasComment ? 10 : 0 }}>
+        {["sim", "nao"].map(opt => (
+          <button
+            key={opt}
+            onClick={() => setAnswer(q.id, opt)}
+            style={{
+              flex: 1, padding: "8px 0", borderRadius: 8, border: "1.5px solid",
+              borderColor: ans === opt ? (opt === "sim" ? "#e05555" : "#2e7d5e") : "#dde3ec",
+              background: ans === opt ? (opt === "sim" ? "#fdf0f0" : "#f0faf5") : "#f8fafc",
+              color: ans === opt ? (opt === "sim" ? "#c0392b" : "#1e6644") : "#6b7a8d",
+              fontWeight: 700, fontSize: 14, cursor: "pointer", fontFamily: "Georgia, serif",
+            }}
+          >
+            {opt === "sim" ? "Sim" : "Não"}
+          </button>
+        ))}
+      </div>
+      {ans === "sim" && q.hasComment && (
+        <input
+          style={inputStyle}
+          placeholder={q.commentLabel || "Comentários adicionais..."}
+          value={comments[q.id] || ""}
+          onChange={e => setComment(q.id, e.target.value)}
+        />
+      )}
+    </div>
+  );
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
 export default function App() {
   const [step, setStep] = useState(0);
   const [answers, setAnswers] = useState({});
@@ -54,6 +110,8 @@ export default function App() {
   const [personalData, setPersonalData] = useState({ nome: "", nascimento: "", peso: "", altura: "", sexo: "" });
   const [surgeryText, setSurgeryText] = useState("");
   const [submitted, setSubmitted] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [sendError, setSendError] = useState(false);
 
   const setAnswer = (id, val) => setAnswers(prev => ({ ...prev, [id]: val }));
   const setComment = (id, val) => setComments(prev => ({ ...prev, [id]: val }));
@@ -63,58 +121,61 @@ export default function App() {
   const step2Questions = questions.slice(13);
   const progress = ((step + 1) / steps.length) * 100;
 
-  const inputStyle = {
-    width: "100%", padding: "10px 14px", borderRadius: 8,
-    border: "1.5px solid #dde3ec", background: "#f8fafc",
-    fontSize: 15, color: "#1a2332", outline: "none",
-    boxSizing: "border-box", fontFamily: "Georgia, serif", marginTop: 4,
-  };
-
   const labelStyle = {
     fontSize: 13, color: "#6b7a8d", fontWeight: 600,
     letterSpacing: "0.04em", textTransform: "uppercase",
     marginBottom: 2, display: "block",
   };
 
-  function QuestionRow({ q }) {
-    const ans = answers[q.id];
-    return (
-      <div style={{
-        background: "#fff", borderRadius: 12, padding: "14px 16px",
-        marginBottom: 10, border: "1.5px solid #eaeff5",
-        boxShadow: "0 1px 4px rgba(60,80,120,0.04)",
-      }}>
-        <div style={{ fontSize: 15, color: "#1a2332", marginBottom: 10, lineHeight: 1.5 }}>
-          {q.text}
-        </div>
-        <div style={{ display: "flex", gap: 10, marginBottom: ans === "sim" && q.hasComment ? 10 : 0 }}>
-          {["sim", "nao"].map(opt => (
-            <button
-              key={opt}
-              onClick={() => setAnswer(q.id, opt)}
-              style={{
-                flex: 1, padding: "8px 0", borderRadius: 8, border: "1.5px solid",
-                borderColor: ans === opt ? (opt === "sim" ? "#e05555" : "#2e7d5e") : "#dde3ec",
-                background: ans === opt ? (opt === "sim" ? "#fdf0f0" : "#f0faf5") : "#f8fafc",
-                color: ans === opt ? (opt === "sim" ? "#c0392b" : "#1e6644") : "#6b7a8d",
-                fontWeight: 700, fontSize: 14, cursor: "pointer", fontFamily: "Georgia, serif",
-              }}
-            >
-              {opt === "sim" ? "Sim" : "Não"}
-            </button>
-          ))}
-        </div>
-        {ans === "sim" && q.hasComment && (
-          <input
-            style={inputStyle}
-            placeholder={q.commentLabel || "Comentários adicionais..."}
-            value={comments[q.id] || ""}
-            onChange={e => setComment(q.id, e.target.value)}
-          />
-        )}
-      </div>
-    );
-  }
+  // Monta objeto de respostas legível para envio por e-mail
+  const buildPayload = () => {
+    const payload = {
+      "📋 Nome": personalData.nome,
+      "🎂 Data de nascimento": personalData.nascimento,
+      "⚖️ Peso": personalData.peso ? `${personalData.peso} kg` : "—",
+      "📏 Altura": personalData.altura ? `${personalData.altura} cm` : "—",
+      "🧬 Sexo biológico": personalData.sexo || "—",
+      "🏥 Cirurgias anteriores": surgeryText || "Nenhuma informada",
+    };
+
+    const allQuestions = [...questions];
+    if (personalData.sexo === "Feminino") allQuestions.push(pregnancyQuestion);
+
+    allQuestions.forEach(q => {
+      const ans = answers[q.id];
+      const comment = comments[q.id];
+      const label = q.text.length > 60 ? q.text.slice(0, 60) + "…" : q.text;
+      payload[label] = ans === "sim"
+        ? (comment ? `Sim — ${comment}` : "Sim")
+        : ans === "nao" ? "Não" : "Não respondeu";
+    });
+
+    return payload;
+  };
+
+  const handleSubmit = async () => {
+    setSending(true);
+    setSendError(false);
+    try {
+      const payload = buildPayload();
+      const res = await fetch(`https://formspree.io/f/${FORMSPREE_ID}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Accept": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (res.ok) {
+        setSubmitted(true);
+      } else {
+        setSendError(true);
+      }
+    } catch {
+      setSendError(true);
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const qProps = { answers, comments, setAnswer, setComment };
 
   return (
     <div style={{
@@ -212,7 +273,7 @@ export default function App() {
           <div>
             <h2 style={{ fontSize: 18, color: "#1a2332", marginBottom: 4 }}>Histórico Médico</h2>
             <p style={{ fontSize: 14, color: "#6b7a8d", marginBottom: 16 }}>Responda com sinceridade. Todas as informações são confidenciais.</p>
-            {step1Questions.map(q => <QuestionRow key={q.id} q={q} />)}
+            {step1Questions.map(q => <QuestionRow key={q.id} q={q} {...qProps} />)}
           </div>
         )}
 
@@ -221,9 +282,9 @@ export default function App() {
           <div>
             <h2 style={{ fontSize: 18, color: "#1a2332", marginBottom: 4 }}>Histórico e Hábitos</h2>
             <p style={{ fontSize: 14, color: "#6b7a8d", marginBottom: 16 }}>Continue respondendo abaixo.</p>
-            {step2Questions.map(q => <QuestionRow key={q.id} q={q} />)}
+            {step2Questions.map(q => <QuestionRow key={q.id} q={q} {...qProps} />)}
             {personalData.sexo === "Feminino" && (
-              <QuestionRow q={pregnancyQuestion} />
+              <QuestionRow q={pregnancyQuestion} {...qProps} />
             )}
             <div style={{ background: "#fff", borderRadius: 12, padding: "14px 16px", marginBottom: 10, border: "1.5px solid #eaeff5" }}>
               <div style={{ fontSize: 15, color: "#1a2332", marginBottom: 10 }}>
@@ -269,34 +330,45 @@ export default function App() {
 
         {/* Navegação */}
         {!submitted && (
-          <div style={{ display: "flex", gap: 12, marginTop: 8 }}>
-            {step > 0 && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 8 }}>
+            {sendError && (
+              <div style={{
+                background: "#fff0f0", border: "1.5px solid #f5c0c0", borderRadius: 10,
+                padding: "12px 16px", fontSize: 13, color: "#c0392b", textAlign: "center",
+              }}>
+                ⚠️ Erro ao enviar. Verifique sua conexão e tente novamente.
+              </div>
+            )}
+            <div style={{ display: "flex", gap: 12 }}>
+              {step > 0 && (
+                <button
+                  onClick={() => setStep(s => s - 1)}
+                  style={{
+                    flex: 1, padding: "14px", borderRadius: 12, border: "1.5px solid #dde3ec",
+                    background: "#fff", color: "#1a3a5c", fontWeight: 700, fontSize: 15,
+                    cursor: "pointer", fontFamily: "Georgia, serif",
+                  }}
+                >
+                  ← Voltar
+                </button>
+              )}
               <button
-                onClick={() => setStep(s => s - 1)}
+                onClick={() => {
+                  if (step < steps.length - 1) setStep(s => s + 1);
+                  else handleSubmit();
+                }}
+                disabled={sending}
                 style={{
-                  flex: 1, padding: "14px", borderRadius: 12, border: "1.5px solid #dde3ec",
-                  background: "#fff", color: "#1a3a5c", fontWeight: 700, fontSize: 15,
-                  cursor: "pointer", fontFamily: "Georgia, serif",
+                  flex: 2, padding: "14px", borderRadius: 12, border: "none",
+                  background: sending ? "#8aaa9c" : "linear-gradient(135deg, #1a3a5c, #2e7d5e)",
+                  color: "#fff", fontWeight: 700, fontSize: 15,
+                  cursor: sending ? "not-allowed" : "pointer", fontFamily: "Georgia, serif",
+                  boxShadow: "0 4px 16px rgba(26,58,92,0.18)",
                 }}
               >
-                ← Voltar
+                {sending ? "Enviando…" : step === steps.length - 1 ? "Enviar Questionário ✓" : "Continuar →"}
               </button>
-            )}
-            <button
-              onClick={() => {
-                if (step < steps.length - 1) setStep(s => s + 1);
-                else setSubmitted(true);
-              }}
-              style={{
-                flex: 2, padding: "14px", borderRadius: 12, border: "none",
-                background: "linear-gradient(135deg, #1a3a5c, #2e7d5e)",
-                color: "#fff", fontWeight: 700, fontSize: 15,
-                cursor: "pointer", fontFamily: "Georgia, serif",
-                boxShadow: "0 4px 16px rgba(26,58,92,0.18)",
-              }}
-            >
-              {step === steps.length - 1 ? "Enviar Questionário ✓" : "Continuar →"}
-            </button>
+            </div>
           </div>
         )}
 
