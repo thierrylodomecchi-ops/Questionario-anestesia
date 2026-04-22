@@ -4,7 +4,7 @@ import { useState } from "react";
 // 1. Acesse https://formspree.io e crie uma conta gratuita
 // 2. Crie um novo form e copie o ID (ex: "xpwzgkjb")
 // 3. Substitua "SEU_ID_AQUI" pelo seu ID abaixo
-const FORMSPREE_ID = "SEU_ID_AQUI";
+const FORMSPREE_ID = "myklndyv";
 // ─────────────────────────────────────────────────────────────────────────────
 
 const questions = [
